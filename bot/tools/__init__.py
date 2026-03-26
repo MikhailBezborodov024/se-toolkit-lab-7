@@ -12,7 +12,7 @@ def get_items_tool() -> dict:
         "type": "function",
         "function": {
             "name": "get_items",
-            "description": "Get list of all labs and tasks available in the system",
+            "description": "Get list of all labs and tasks available in the system. Use this when user asks about available labs, what labs exist, or wants to see the list of labs.",
             "parameters": {
                 "type": "object",
                 "properties": {},
@@ -65,7 +65,7 @@ def get_pass_rates_tool() -> dict:
         "type": "function",
         "function": {
             "name": "get_pass_rates",
-            "description": "Get per-task pass rates (averages) for a specific lab",
+            "description": "Get per-task pass rates (averages) for a specific lab. Use this when user asks about scores, pass rates, or results for a specific lab.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -202,19 +202,33 @@ def get_all_tools() -> list[dict]:
 
 # Tool execution functions
 def execute_get_items() -> str:
-    """Execute get_items tool."""
+    """Execute get_items tool - returns actual lab names."""
     client = get_lms_client()
     items = client.get_items()
     if not items:
         return "No items found or backend is unreachable"
-    return f"Found {len(items)} items in the system"
+    
+    # Extract and format lab names
+    labs = [item for item in items if item.get("type") == "lab"]
+    if not labs:
+        return f"Found {len(items)} items but no labs"
+    
+    # Format with actual lab titles
+    result = ["Available labs:"]
+    for lab in labs:
+        title = lab.get("title", "Unknown")
+        lab_id = lab.get("id", "unknown")
+        result.append(f"  • {lab_id}: {title}")
+    
+    return "\n".join(result)
 
 
 def execute_get_learners() -> str:
     """Execute get_learners tool."""
     client = get_lms_client()
-    learners = client.get_items()  # Assuming learners come from same endpoint
-    return f"Found {len(learners)} learners enrolled"
+    # For now, use items count as proxy
+    items = client.get_items()
+    return f"Found {len(items)} items in the system. Use get_items to see details."
 
 
 def execute_get_scores(lab: str) -> str:
