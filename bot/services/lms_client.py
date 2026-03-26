@@ -53,10 +53,10 @@ class LMSClient:
 
     def get_analytics(self, lab: str) -> dict:
         """Get analytics for a specific lab.
-        
+
         Args:
             lab: Lab identifier (e.g., "lab-04")
-        
+
         Returns:
             Analytics data, or empty dict on error
         """
@@ -68,6 +68,24 @@ class LMSClient:
             return {}
         except Exception:
             return {}
+
+    def get_pass_rates(self, lab: str) -> list[dict]:
+        """Get per-task pass rates for a lab.
+
+        Args:
+            lab: Lab identifier (e.g., "lab-04")
+
+        Returns:
+            List of pass rate data, or empty list on error
+        """
+        try:
+            client = self._get_client()
+            response = client.get("/analytics/pass-rates", params={"lab": lab})
+            if response.status_code == 200:
+                return response.json()
+            return []
+        except Exception:
+            return []
 
 
 # Global client instance for reuse
