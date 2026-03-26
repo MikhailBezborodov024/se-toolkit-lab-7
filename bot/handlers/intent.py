@@ -1,9 +1,6 @@
 """Intent classification handler for natural language queries."""
 
-import re
-
 from services.llm_client import get_llm_client
-from services.lms_client import get_lms_client
 from tools import get_all_tools, execute_tool
 
 
@@ -41,28 +38,6 @@ If you don't understand the question, suggest using /help for available commands
 """
 
 
-def extract_lab_from_query(message: str) -> str | None:
-    """Extract lab identifier from user query.
-    
-    Handles formats like: "lab 04", "lab-04", "lab 4", "lab04"
-    Returns: "lab-04" format or None
-    """
-    # Pattern: lab followed by optional dash and digits
-    patterns = [
-        r'lab[-\s]?(\d+)',
-        r'lab[-\s]?(\d{2})',
-    ]
-    
-    for pattern in patterns:
-        match = re.search(pattern, message, re.IGNORECASE)
-        if match:
-            num = match.group(1)
-            # Ensure 2-digit format
-            return f"lab-{num.zfill(2)}"
-    
-    return None
-
-
 def handle_intent(message: str) -> str:
     """Handle natural language intent classification.
 
@@ -75,9 +50,6 @@ def handle_intent(message: str) -> str:
     llm = get_llm_client()
     tools = get_all_tools()
 
-    # Extract lab if mentioned
-    lab = extract_lab_from_query(message)
-    
     # Create messages for LLM
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
@@ -105,10 +77,6 @@ def handle_intent(message: str) -> str:
                 arguments = eval(arguments)  # Simple parsing for now
         except Exception:
             arguments = {}
-        
-        # Add extracted lab if not provided
-        if lab and "lab" not in arguments:
-            arguments["lab"] = lab
         
         # Execute tool
         result = execute_tool(tool_name, arguments)
