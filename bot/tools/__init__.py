@@ -185,6 +185,28 @@ def sync_pipeline_tool() -> dict:
     }
 
 
+def analyze_pass_rates_tool() -> dict:
+    """Get tool definition for analyzing pass rates across labs."""
+    return {
+        "type": "function",
+        "function": {
+            "name": "analyze_pass_rates",
+            "description": "Analyze pass rates across all labs to find lowest, highest, or average. Use for queries like 'which lab has lowest pass rate', 'which lab is hardest', 'which lab has best scores'.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "metric": {
+                        "type": "string",
+                        "description": "Metric to analyze: 'lowest', 'highest', or 'average'",
+                        "enum": ["lowest", "highest", "average"],
+                    },
+                },
+                "required": ["metric"],
+            },
+        },
+    }
+
+
 def get_all_tools() -> list[dict]:
     """Get all available tool definitions."""
     return [
@@ -197,6 +219,7 @@ def get_all_tools() -> list[dict]:
         get_top_learners_tool(),
         get_completion_rate_tool(),
         sync_pipeline_tool(),
+        analyze_pass_rates_tool(),
     ]
 
 
@@ -280,6 +303,62 @@ def execute_sync_pipeline() -> str:
     return "ETL sync triggered (endpoint not yet implemented)"
 
 
+def execute_analyze_pass_rates(metric: str = "lowest") -> str:
+    """Execute analyze_pass_rates tool - find lowest/highest pass rate across labs."""
+    client = get_lms_client()
+    items = client.get_items()
+    
+    if not items:
+        return "Cannot fetch labs data"
+    
+    labs = [item for item in items if item.get("type") == "lab"]
+    if not labs:
+        return "No labs found"
+    
+    # Get pass rates for each lab
+    lab_rates = []
+    for lab in labs:
+        lab_id = lab.get("id")
+        lab_num = lab.get("number", lab_id)
+        title = lab.get("title", "Unknown")
+        
+        # Convert lab_id to proper format for API call
+        if isinstance(lab_id, int):
+            api_lab_id = f"lab-{lab_id:02d}"
+        else:
+            api_lab_id = str(lab_id)
+            
+        pass_rates = client.get_pass_rates(api_lab_id)
+        if pass_rates:
+            # Calculate average pass rate for this lab
+            total = 0
+            count = 0
+            for entry in pass_rates:
+                avg = entry.get("avg_score", 0)
+                if isinstance(avg, (int, float)):
+                    total += avg
+                    count += 1
+            
+            if count > 0:
+                avg_rate = total / count
+                display_lab = f"Lab {lab_num:02d}" if isinstance(lab_num, int) else f"Lab {lab_num}"
+                lab_rates.append((display_lab, title, avg_rate))
+    
+    if not lab_rates:
+        return "No pass rate data available"
+    
+    # Find based on metric
+    if metric == "highest":
+        result = max(lab_rates, key=lambda x: x[2])
+        return f"{result[0]} ({result[1]}) has the highest average pass rate at {result[2]:.1f}%"
+    elif metric == "lowest":
+        result = min(lab_rates, key=lambda x: x[2])
+        return f"{result[0]} ({result[1]}) has the lowest average pass rate at {result[2]:.1f}%"
+    else:  # average
+        overall_avg = sum(r[2] for r in lab_rates) / len(lab_rates)
+        return f"Average pass rate across all labs is {overall_avg:.1f}%"
+
+
 # Map tool names to execution functions
 TOOL_EXECUTORS = {
     "get_items": execute_get_items,
@@ -291,6 +370,7 @@ TOOL_EXECUTORS = {
     "get_top_learners": execute_get_top_learners,
     "get_completion_rate": execute_get_completion_rate,
     "sync_pipeline": execute_sync_pipeline,
+    "analyze_pass_rates": execute_analyze_pass_rates,
 }
 
 
