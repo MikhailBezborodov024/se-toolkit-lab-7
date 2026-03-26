@@ -18,6 +18,7 @@ from handlers import (
     handle_labs,
     handle_scores,
 )
+from handlers.intent import handle_intent
 
 # Load environment variables at startup
 load_env()
@@ -45,8 +46,12 @@ def run_test_mode(command: str) -> None:
         response = handle_labs()
     elif cmd == "/scores":
         response = handle_scores(lab=arg)
-    else:
+    elif cmd.startswith("/"):
         response = f"Unknown command: {cmd}. Use /help for available commands."
+    else:
+        # Natural language query - route to intent handler
+        full_message = f"{cmd} {arg}".strip() if arg else cmd
+        response = handle_intent(full_message)
 
     # Print to stdout and exit cleanly
     print(response)
