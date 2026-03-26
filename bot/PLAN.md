@@ -1,70 +1,73 @@
-# LMS Telegram Bot — Development Plan
+# Bot Implementation Plan
 
 ## Overview
 
-This document outlines the development plan for building a Telegram bot that integrates with the LMS backend. The bot allows users to check system health, browse labs and scores, and ask questions in plain language using an LLM for intent classification.
+This document outlines the implementation plan for the LMS Telegram Bot (Lab 7). The bot provides a Telegram interface to the LMS backend, allowing students to check their progress, view labs, and get scores using natural language commands.
 
-## Task 1: Plan and Scaffold
+## Architecture
 
-**Goal:** Establish the project structure and testable handler architecture.
+The bot follows a layered architecture with clear separation of concerns:
 
-**Approach:**
-- Create `bot/` directory with `bot.py` as the entry point
-- Implement `--test` mode for CLI testing without Telegram connection
-- Separate handlers into `bot/handlers/` directory — these are plain functions that don't depend on Telegram
-- Create `bot/config.py` for environment variable loading from `.env.bot.secret`
-- Create `bot/services/` directory for future API clients
+1. **Entry Point (bot.py)**: Main entry point with CLI test mode for testing handlers without Telegram
+2. **Handlers (bot/handlers/)**: Pure functions that take input and return text responses
+3. **Services (bot/services/)**: External API clients (LMS backend, LLM for intent routing)
+4. **Configuration (config.py)**: Environment variable loading and access
 
-**Key Pattern:** Testable handlers — the same handler functions work from `--test` mode, unit tests, or Telegram. This is *separation of concerns*.
+## Key Design Decisions
 
-## Task 2: Backend Integration
+### Handler Separation
 
-**Goal:** Implement slash commands that fetch real data from the LMS backend.
+Handlers are plain Python functions that don't depend on Telegram. This allows:
+- Testing via `--test` mode without Telegram connection
+- Unit tests that call handlers directly
+- Easy replacement of Telegram with other transport layers
 
-**Approach:**
-- Create `bot/services/lms_client.py` — an API client that wraps HTTP calls to the backend
-- Implement Bearer token authentication using `LMS_API_KEY`
-- Update handlers: `/health` (check backend status), `/labs` (list items), `/scores <lab>` (get analytics)
-- Add error handling for backend failures (friendly messages, no crashes)
+### Test Mode
 
-**Key Pattern:** API client abstraction — handlers call the client, not raw HTTP. This makes testing easier and centralizes error handling.
+The `--test` mode parses command strings and routes to handlers directly, printing responses to stdout. This enables quick verification without deploying to Telegram.
 
-## Task 3: Intent-Based Natural Language Routing
+### Environment Configuration
 
-**Goal:** Allow users to send plain text messages that the bot interprets using an LLM.
+Secrets (bot token, API keys) are loaded from `.env.bot.secret` at startup. This file is gitignored to prevent committing secrets.
 
-**Approach:**
-- Create `bot/services/llm_service.py` — integrates with Qwen LLM API
-- Implement intent classification: map natural language to commands (e.g., "check my scores" → `/scores`)
-- Extract parameters from user input (e.g., "lab-04" from "what are my scores for lab 4?")
-- Add message handler for non-command messages in Telegram mode
+## Implementation Phases
 
-**Key Pattern:** LLM tool use — the LLM reads tool descriptions to decide which API to call. Description quality matters more than prompt engineering.
+### Phase 1: Scaffold (Task 1)
+- Create bot.py with --test mode
+- Create handler directory structure
+- Implement placeholder handlers for /start, /help
+- Set up pyproject.toml with dependencies
 
-## Task 4: Containerize and Deploy
+### Phase 2: Backend Integration (Task 2)
+- Implement LMS client service
+- Add /health handler (calls backend /health endpoint)
+- Add /labs handler (calls backend /items/ endpoint)
+- Add /scores handler (calls backend /analytics/pass-rates endpoint)
+- Handle errors gracefully with user-friendly messages
 
-**Goal:** Deploy the bot alongside the backend using Docker Compose.
+### Phase 3: LLM Intent Routing (Task 3)
+- Implement LLM service for natural language understanding
+- Create intent classifier that maps user messages to commands
+- Extract parameters from natural language (e.g., "lab-04" from "show me scores for lab 4")
+- Handle non-command messages using LLM
 
-**Approach:**
-- Create `bot/Dockerfile` — Python 3.12-slim base, uv installed, entry point configured
-- Update `docker-compose.yml` — add bot service, link with backend using service names (not localhost)
-- Create `.env.bot.secret` on VM with `BOT_TOKEN`, `LLM_API_KEY`, `BACKEND_URL`
+### Phase 4: Docker Deployment (Task 4)
+- Create Dockerfile for the bot
+- Update docker-compose.yml to include bot service
+- Configure environment variables for container
 - Test deployment and verify bot responds in Telegram
-- Update README with deployment instructions
-
-**Key Pattern:** Docker networking — containers communicate via service names (e.g., `backend`), not `localhost`.
 
 ## Testing Strategy
 
-- **Unit tests:** Test handlers in isolation (future work)
-- **CLI test mode:** `uv run bot.py --test "/command"` for quick verification
-- **Integration tests:** Deploy to VM and test in Telegram
+1. **Unit tests**: Test handlers in isolation
+2. **Test mode**: Verify commands via `uv run bot.py --test "/command"`
+3. **Integration tests**: Test with real backend
+4. **E2E tests**: Test in Telegram after deployment
 
-## Git Workflow
+## Acceptance Criteria
 
-For each task:
-1. Create GitHub issue
-2. Create feature branch: `feature/lab7-task-X`
-3. Implement, test, commit locally
-4. Push and create PR on GitHub
-5. Partner review, then merge
+- All commands work in --test mode
+- Handlers return appropriate responses
+- Errors are handled gracefully
+- No secrets hardcoded
+- Clean separation between handlers and Telegram
