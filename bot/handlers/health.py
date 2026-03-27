@@ -11,13 +11,11 @@ def handle_health(user_id: int = 0) -> str:
     """
     client = get_lms_client()
     
-    # First check if backend is reachable
-    is_healthy = client.health_check()
-    if not is_healthy:
+    # Get items to check if backend is reachable and has data
+    items = client.get_items()
+    
+    if not items:
         return "Backend is DOWN or unreachable"
     
-    # Get items count to prove backend has data
-    items = client.get_items()
-    count = len(items) if items else 0
-    
+    count = len(items)
     return f"Backend is healthy. {count} items available."
